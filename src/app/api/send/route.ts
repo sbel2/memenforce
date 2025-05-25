@@ -4,7 +4,7 @@ import axios from "axios";
 
 const GMAIL_USER = process.env.GMAIL_USER!;
 const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD!;
-const TO_EMAIL = process.env.TO_EMAIL!; // Can be your Gmail or number@tmomail.net
+const TO_EMAIL = process.env.TO_EMAIL!;
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY!;
 
 export async function POST() {
@@ -16,7 +16,14 @@ export async function POST() {
     const context = "Your wife of over 50 years. You met in college and went to Italy together in 1998.";
     const userName = "John";
 
-    const prompt = `Create a brief and friendly reminder message for ${userName} about ${name}, whose birthday is today. She is his ${relationship}. Context: ${context}. The main structure is message is it is your ${relationship}'s birthday today, ${name}. Do you want to send her a message or call her?`;
+    const prompt = `
+Create a short subject line and a brief reminder message (max 160 characters) for ${userName} about ${name}, whose birthday is today. 
+She is his ${relationship}. 
+Context: ${context}. 
+Format your response exactly like this:
+Subject: <subject>
+Message: <message>
+`;
 
     console.log("🧠 Step 2: Sending prompt to Perplexity API");
 
@@ -25,7 +32,7 @@ export async function POST() {
       {
         model: "sonar-pro",
         messages: [
-          { role: "system", content: "Keep output under 160 characters." },
+          { role: "system", content: "Return a subject and a short message." },
           { role: "user", content: prompt }
         ],
       },
@@ -39,9 +46,13 @@ export async function POST() {
     );
 
     console.log("✅ Step 3: Received response from Perplexity");
-    const message =
-      perplexityResponse.data?.choices?.[0]?.message?.content?.trim() ||
-      "Hi John, today is Alice's birthday.";
+
+    const raw = perplexityResponse.data?.choices?.[0]?.message?.content || "";
+    const subjectMatch = raw.match(/Subject:\s*(.*)/i);
+    const messageMatch = raw.match(/Message:\s*(.*)/i);
+
+    const subject = subjectMatch?.[1]?.trim() || "Birthday Reminder 🎂";
+    const message = messageMatch?.[1]?.trim() || "Hi John, today is Alice’s birthday. Want to reach out?";
 
     console.log("📧 Step 4: Sending email via Gmail SMTP");
 
@@ -56,7 +67,7 @@ export async function POST() {
     const mailResult = await transporter.sendMail({
       from: `"Memforce" <${GMAIL_USER}>`,
       to: TO_EMAIL,
-      subject: "", // Optional; leave blank for SMS gateways
+      subject,
       text: message,
     });
 
