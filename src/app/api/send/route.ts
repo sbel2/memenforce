@@ -1,25 +1,37 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import axios from "axios";
+import { createClient } from "@supabase/supabase-js";
 
 const GMAIL_USER = process.env.GMAIL_USER!;
 const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD!;
 const TO_EMAIL = process.env.TO_EMAIL!;
 const PERPLEXITY_API_KEY = process.env.PERPLEXITY_API_KEY!;
+const SUPABASE_URL = process.env.SUPABASE_URL!;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 export async function POST() {
   try {
-    console.log("🔄 Step 1: Starting birthday reminder flow");
+    console.log("🔄 Step 1: Fetching first family member from Supabase");
 
-    const name = "Alice Johnson";
-    const relationship = "wife";
-    const context = "Your wife of over 50 years. You met in college and went to Italy together in 1998.";
+   const { data, error } = await supabase
+    .from("family")
+    .select("*")
+    .order("ID", { ascending: true })
+    .range(1, 1) // this gets only the second row (0-based index)
+    .single();
+
+    if (error || !data) throw new Error("Could not fetch data from Supabase");
+
+    const { Name, Relationship, Context } = data;
     const userName = "John";
 
     const prompt = `
-Create a short subject line and a brief reminder message (max 160 characters) for ${userName} about ${name}, whose birthday is today. 
-She is his ${relationship}. 
-Context: ${context}. 
+Create a short subject line and a brief reminder message (max 160 characters) for ${userName} about ${Name}, whose birthday is today. 
+She is his ${Relationship}. 
+Context: ${Context}.
 Format your response exactly like this:
 Subject: <subject>
 Message: <message>
@@ -33,7 +45,7 @@ Message: <message>
         model: "sonar-pro",
         messages: [
           { role: "system", content: "Return a subject and a short message." },
-          { role: "user", content: prompt }
+          { role: "user", content: prompt },
         ],
       },
       {
@@ -52,7 +64,7 @@ Message: <message>
     const messageMatch = raw.match(/Message:\s*(.*)/i);
 
     const subject = subjectMatch?.[1]?.trim() || "Birthday Reminder 🎂";
-    const message = messageMatch?.[1]?.trim() || "Hi John, today is Alice’s birthday. Want to reach out?";
+    const message = messageMatch?.[1]?.trim() || `Hi John, today is ${Name}’s birthday.`;
 
     console.log("📧 Step 4: Sending email via Gmail SMTP");
 
