@@ -29,13 +29,18 @@ export async function POST() {
     const userName = "John";
 
     const prompt = `
-Create a short subject line and a brief reminder message (max 160 characters) for ${userName} about ${Name}, whose birthday is today. 
-She is his ${Relationship}. 
-Context: ${Context}.
-Format your response exactly like this:
-Subject: <subject>
-Message: <message>
-`;
+    Create an email reminder message for ${userName} about ${Name}, whose birthday is today. 
+    ${Name} is his ${Relationship}. 
+
+    This message is for ${userName} to gently remind them about this person’s birthday and who they are in their life. 
+    Include some personal context to help them remember. 
+    End with a kind nudge asking if they'd like to call or message ${Name} today.
+
+    Respond in this format:
+    Subject: <a short email subject>
+    Message: <the full reminder body>
+    Context: ${Context}
+    `;
 
     console.log("🧠 Step 2: Sending prompt to Perplexity API");
 
@@ -61,7 +66,7 @@ Message: <message>
 
     const raw = perplexityResponse.data?.choices?.[0]?.message?.content || "";
     const subjectMatch = raw.match(/Subject:\s*(.*)/i);
-    const messageMatch = raw.match(/Message:\s*(.*)/i);
+    const messageMatch = raw.match(/Message:\s*([\s\S]*)/i);
 
     const subject = subjectMatch?.[1]?.trim() || "Birthday Reminder 🎂";
     const message = messageMatch?.[1]?.trim() || `Hi John, today is ${Name}’s birthday.`;
